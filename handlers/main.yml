@@ -1,0 +1,5 @@
+---
+
+- name: Retart amazon inspector agent
+  service: name=awsagent state=restarted
+  when: ansible_bios_version|search('amazon')

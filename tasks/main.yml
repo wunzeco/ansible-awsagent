@@ -1,0 +1,79 @@
+---
+
+- name: Create amazon inspector agent install dir
+  file:
+    path:  "{{ awsagent_install_dir }}"
+    state: directory
+
+- name: Download amazon inspector agent gpg signing key
+  get_url:
+    url: "{{ awsagent_signing_key_url }}"
+    dest: "{{ awsagent_install_dir }}/inspector.gpg"
+
+- name: Import amazon inspector agent gpg signing key
+  shell: gpg --import inspector.gpg | tee inspector-gpg-imported
+  args:
+    chdir:   "{{ awsagent_install_dir }}"
+    creates: inspector-gpg-imported
+  register: import
+
+- debug: var=import
+
+- name: Download amazon inspector agent install script
+  get_url:
+    url: "{{ awsagent_install_script_url }}"
+    dest: "{{ awsagent_install_dir }}/install"
+
+- name: Download amazon inspector agent install script signature
+  get_url:
+    url: "{{ awsagent_install_script_signature_url }}"
+    dest: "{{ awsagent_install_dir }}/install.sig"
+  register: install_script
+
+- name: Verify amazon inspector agent install script signature
+  shell: gpg --verify install.sig
+  args:
+    chdir:   "{{ awsagent_install_dir }}"
+  when: install_script|changed
+  register: verify
+
+- debug: var=verify
+
+- name: Ensure amazon inpector agent install script signature passes
+  fail: msg="Amazon Inspector install script signature verification FAILED"
+  when: install_script|changed and not verify.stderr|search('Good signature.*Amazon Inspector <inspector@amazon.com>')
+
+- name: Install amazon inspector agent  dependencies | Debian
+  apt: 
+    name: "{{ item }}"
+  with_items: "{{ awsagent_dependencies }}"
+  when: ansible_os_family|lower == 'debian'
+
+- name: Install amazon inspector agent  dependencies | RedHat
+  apt: 
+    name: "{{ item }}"
+  with_items: "{{ awsagent_dependencies }}"
+  when: ansible_os_family|lower == 'redhat'
+
+# The install script downloaded will only work on an ec2 instance because of the
+# use of ec2 instance metadata. Hence, the conditional on ansible_bios_version
+- name: Install amazon inspector agent 
+  shell: bash install
+  args:
+    chdir:   "{{ awsagent_install_dir }}"
+    creates: install.log
+  when: ansible_bios_version|search('amazon')
+  notify: Restart amazon inspector agent
+  register: install
+
+- debug: var=install
+
+- name: Create install control file
+  copy:
+    content: "{{ install.stdout }}"
+    dest:    "{{ awsagent_install_dir }}/install.log"
+  when: install|changed and install.stdout|search("Installation script completed successfully.")
+
+- name: Start amazon inspector agent
+  service: name=awsagent enabled=yes state=started
+  when: ansible_bios_version|search('amazon')
