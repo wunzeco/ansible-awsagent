@@ -17,7 +17,7 @@
     creates: inspector-gpg-imported
   register: import
 
-- debug: var=import
+#- debug: var=import
 
 - name: Download amazon inspector agent install script
   get_url:
@@ -37,7 +37,7 @@
   when: install_script|changed
   register: verify
 
-- debug: var=verify
+#- debug: var=verify
 
 - name: Ensure amazon inpector agent install script signature passes
   fail: msg="Amazon Inspector install script signature verification FAILED"
@@ -66,12 +66,15 @@
   notify: Restart amazon inspector agent
   register: install
 
-- debug: var=install
+#- debug: var=install
 
-- name: Create install control file
+- name: Create install control file if successfully installed
   copy:
     content: "{{ install.stdout }}"
     dest:    "{{ awsagent_install_dir }}/install.log"
+  when: install|changed and install.stdout|search("Installation script completed successfully.")
+
+- debug: msg="Installation completed successfully"
   when: install|changed and install.stdout|search("Installation script completed successfully.")
 
 - name: Start amazon inspector agent
