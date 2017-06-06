@@ -11,12 +11,12 @@
     - name: Copy custom install script of amazon inspector agent to run for integration test purpose
       copy: 
         src: roles/ansible-awsagent/test/custom-install.sh
-        dest: "{{ awsagent_work_dir }}/custom-install.sh"
+        dest: "{{ awsagent_install_dir }}/custom-install.sh"
 
     - name: Install amazon inspector agent | integration
       shell: bash custom-install.sh
       args:
-        chdir:   "{{ awsagent_work_dir }}"
+        chdir:   "{{ awsagent_install_dir }}"
         creates: custom-install.log
       register: install
 
@@ -25,5 +25,5 @@
     - name: Create custom-install control file | integration
       copy:
         content: "{{ install.stdout }}"
-        dest:    "{{ awsagent_work_dir }}/custom-install.log"
+        dest:    "{{ awsagent_install_dir }}/custom-install.log"
       when: install|changed and install.stdout|search("Installation script completed successfully.")
